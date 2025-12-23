@@ -72,10 +72,7 @@ public class RegisterActivity extends AppCompatActivity {
                                 if (jsonRESULTS.getString("error").equals("false")){
                                     Toast.makeText(mContext, "BERHASIL REGISTRASI", Toast.LENGTH_SHORT).show();
                                     startActivity(new Intent(mContext, LoginActivity.class));
-                                } else {
-                                    String error_message = jsonRESULTS.getString("error_msg");
-                                    Toast.makeText(mContext, error_message, Toast.LENGTH_SHORT).show();
-                                }
+                                } 
                             } catch (JSONException e) {
                                 e.printStackTrace();
                             } catch (IOException e) {
@@ -95,3 +92,4 @@ public class RegisterActivity extends AppCompatActivity {
                 });
     }
 }
+
