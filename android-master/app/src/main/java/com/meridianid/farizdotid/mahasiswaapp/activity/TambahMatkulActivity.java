@@ -141,9 +141,7 @@ public class TambahMatkulActivity extends AppCompatActivity {
                         if (response.isSuccessful()){
                             loading.dismiss();
                             Toast.makeText(mContext, "Berhasil menambahkan data matkul", Toast.LENGTH_SHORT).show();
-                            startActivity(new Intent(mContext, MatkulActivity.class)
-                                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK));
-                            finish();
+                            
                         } else {
                             loading.dismiss();
                             Toast.makeText(mContext, "Gagal menambahkan data matkul", Toast.LENGTH_SHORT).show();
