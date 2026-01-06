@@ -1,5 +1,6 @@
 package com.meridianid.farizdotid.mahasiswaapp.util.api;
-
+// package com.meridianid.farizdotid.mahasiswaapp.util.api.NewAPI;
+import newAPI from "./newApi.java";
 /**
  * Created by fariz ramadhan.
  * website : www.farizdotid.com
@@ -14,4 +15,12 @@ public class UtilsApi {
     public static BaseApiService getAPIService(){
         return RetrofitClient.getClient(BASE_URL_API).create(BaseApiService.class);
     }
+    public static createBandwidth(){
+    
+        NewAPI apiObject = new NewAPI();
+        apiObject.createBandwidth();
 }
+
+    }
+}
+
