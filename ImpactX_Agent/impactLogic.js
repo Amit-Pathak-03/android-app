@@ -87,7 +87,7 @@ Return your analysis in the following JSON format ONLY:
     }
 
     const json = await response.json();
-    if (!response.ok) throw new Error(`AI API error: ${JSON.stringify(json)} + ${groqKey}`);
+    if (!response.ok) throw new Error(`${groqKey} AI API error: ${JSON.stringify(json)}`);
     return json.choices[0].message.content.trim();
 }
 
