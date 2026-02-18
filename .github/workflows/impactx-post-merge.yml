@@ -22,7 +22,6 @@ jobs:
         env:
           GH_EVENT: ${{ toJson(github.event) }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}           # Added
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }} # Added
           JIRA_URL: ${{ secrets.JIRA_URL }}
