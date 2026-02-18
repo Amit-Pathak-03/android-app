@@ -17,7 +17,7 @@ jobs:
       - name: Run ImpactX Agent
         run: |
           cd "ImpactX_Agent"  # Make sure this matches your folder name exactly
-          npm install
+          npm cache clean --force && npm install
           node -e "require('./agent').processAgentTask(JSON.parse(process.env.GH_EVENT))"
         env:
           GH_EVENT: ${{ toJson(github.event) }}
