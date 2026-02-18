@@ -1,4 +1,5 @@
-name: ImpactX Post-Merge
+name: ImpactX Post-Merge Analysis
+
 on:
   pull_request:
     types: [closed]
@@ -6,28 +7,42 @@ on:
 
 jobs:
   analyze:
+    # Only run if the PR was actually merged (not just closed)
     if: github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
+    
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup Node
-        uses: actions/setup-node@v3
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required to see the full git history for diffs
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 18
+          cache: 'npm'
+          cache-dependency-path: './ImpactX_Agent/package-lock.json'
+
+      - name: Install Dependencies
+        run: |
+          cd ImpactX_Agent
+          npm install
+
       - name: Run ImpactX Agent
         run: |
-          cd "ImpactX_Agent"  # Make sure this matches your folder name exactly
-          npm cache clean --force && npm install
+          cd ImpactX_Agent
           node -e "require('./agent').processAgentTask(JSON.parse(process.env.GH_EVENT))"
         env:
           GH_EVENT: ${{ toJson(github.event) }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}           # Added
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }} # Added
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           JIRA_URL: ${{ secrets.JIRA_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
           JIRA_TOKEN: ${{ secrets.JIRA_TOKEN }}
+          EMAIL_HOST: ${{ secrets.EMAIL_HOST }}
+          EMAIL_PORT: ${{ secrets.EMAIL_PORT }}
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-          EMAIL_HOST: "smtp.gmail.com"  # Can be hardcoded or a secret
-          EMAIL_PORT: "587"             # Can be hardcoded or a secret
