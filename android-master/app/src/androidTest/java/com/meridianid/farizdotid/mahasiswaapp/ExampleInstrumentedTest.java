@@ -20,10 +20,11 @@ public class ExampleInstrumentedTest {
     public void useAppContext() throws Exception {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getTargetContext();
-        System.out.println(" check 1 - did not work");
+        System.out.println(" check 1 - worked");
         assertEquals("com.meridianid.farizdotid.mahasiswaapp", appContext.getPackageName());
         
     }
 }
+
 
 
