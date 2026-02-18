@@ -37,7 +37,6 @@ async function processAgentTask(payload) {
   // Configuration from Environment Variables (Standalone mode)
   const config = {
     githubToken: process.env.GITHUB_TOKEN,
-    openaiKey: process.env.OPENAI_API_KEY,
     groqKey: process.env.GROQ_API_KEY,
     openRouterKey: process.env.OPENROUTER_API_KEY,
     jiraUrl: process.env.JIRA_URL,
@@ -61,12 +60,12 @@ async function processAgentTask(payload) {
     const diff = await impactLogic.getGitHubDiff(config.githubToken, repoOwner, repoName, sourceBranch, compareBranch);
     const tree = await impactLogic.getGitHubTree(config.githubToken, repoOwner, repoName, compareBranch);
 
-    const analysisJson = await impactLogic.summarizeImpact(config.openaiKey, config.groqKey, diff, tree);
+    const analysisJson = await impactLogic.summarizeImpact(null, config.groqKey, diff, tree);
     const analysis = JSON.parse(analysisJson);
 
     // 3. Generate Automated Test Cases
     console.log(`[Agent] 🧪 Generating test cases...`);
-    const testCasesJson = await impactLogic.generateTestCases(config.openRouterKey || config.openaiKey, diff, tree, repoOwner, repoName);
+    const testCasesJson = await impactLogic.generateTestCases(config.openRouterKey, diff, tree, repoOwner, repoName);
     const testCases = JSON.parse(testCasesJson);
 
     console.log(`[Agent] ✅ Analysis completed.`);

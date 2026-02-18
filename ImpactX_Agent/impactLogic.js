@@ -75,20 +75,14 @@ Return your analysis in the following JSON format ONLY:
     };
 
     let response;
-    if (openaiKey) {
-        response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
-            body: JSON.stringify({ ...body, model: 'gpt-4o-mini' })
-        });
-    } else if (groqKey) {
+    if (groqKey) {
         response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
             body: JSON.stringify({ ...body, model: 'llama-3.3-70b-versatile' })
         });
     } else {
-        throw new Error('No AI API Key provided (OpenAI or Groq)');
+        throw new Error('No Groq API Key provided for impact analysis');
     }
 
     const json = await response.json();
