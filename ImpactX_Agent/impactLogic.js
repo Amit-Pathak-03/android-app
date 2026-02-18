@@ -48,6 +48,7 @@ ${JSON.stringify(structure || [], null, 2).substring(0, 4000)}
 ${diff.substring(0, 8000)}
 
 [ANALYSIS GUIDELINES]
+SCOPE: Ignore the analyzer tool itself (ImpactX_Agent). Focus on the Business logic based on [GIT DIFF].
 1. Logic & State: How do these changes affect the flow of data or internal state?
 2. API & Integration: Are there breaking changes to signatures or payloads?
 3. Data Persistence: Does it affect database schemas or performance?
