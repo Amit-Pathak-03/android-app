@@ -48,12 +48,13 @@ ${JSON.stringify(structure || [], null, 2).substring(0, 4000)}
 ${diff.substring(0, 8000)}
 
 [ANALYSIS GUIDELINES]
-SCOPE: Ignore the analyzer tool itself (ImpactX_Agent). Focus on the Business logic based on [GIT DIFF].
-1. Logic & State: How do these changes affect the flow of data or internal state?
-2. API & Integration: Are there breaking changes to signatures or payloads?
-3. Data Persistence: Does it affect database schemas or performance?
-4. UI & Side Effects: Will this break existing UI components?
-5. Security: Does it introduce new vulnerabilities?
+1. FOCUS: Only analyze the impacts of the code changes shown in the [GIT DIFF].
+2. SCOPE: Ignore the analyzer tool itself "ImpactX_Agent and .github/workflows". Focus on the Business logic based on [GIT DIFF].
+3. Logic & State: How do these changes affect the flow of data or internal state?
+4. API & Integration: Are there breaking changes to signatures or payloads?
+5. Data Persistence: Does it affect database schemas or performance?
+6. UI & Side Effects: Will this break existing UI components?
+7. Security: Does it introduce new vulnerabilities?
 
 Return your analysis in the following JSON format ONLY:
 {
