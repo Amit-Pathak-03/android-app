@@ -1,0 +1,29 @@
+name: ImpactX Post-Merge
+on:
+  pull_request:
+    types: [closed]
+    branches: [master, main]
+
+jobs:
+  analyze:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: Run ImpactX Agent
+        run: |
+          cd "agent new"
+          npm install
+          node -e "require('./agent').processAgentTask(JSON.parse(process.env.GH_EVENT))"
+        env:
+          GH_EVENT: ${{ toJson(github.event) }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          JIRA_URL: ${{ secrets.JIRA_URL }}
+          JIRA_TOKEN: ${{ secrets.JIRA_TOKEN }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
