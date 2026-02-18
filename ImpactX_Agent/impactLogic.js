@@ -36,7 +36,7 @@ async function getGitHubTree(token, owner, repo, branch) {
     return (json.tree || []).map(i => ({ path: i.path, type: i.type === 'tree' ? 'directory' : 'file' })).slice(0, 300);
 }
 
-async function summarizeImpact(openaiKey, groqKey, diff, structure) {
+async function summarizeImpact(groqKey, diff, structure) {
     const prompt = `
 You are a Senior Staff Software Architect. Perform a rigorous technical impact analysis on the following code changes.
 Your goal is to identify ALL potential ripple effects, logic breaks, and architectural risks.
@@ -82,11 +82,12 @@ Return your analysis in the following JSON format ONLY:
             body: JSON.stringify({ ...body, model: 'llama-3.3-70b-versatile' })
         });
     } else {
+        console.log(`Bearer ${groqKey}`);
         throw new Error('No Groq API Key provided for impact analysis');
     }
 
     const json = await response.json();
-    if (!response.ok) throw new Error(`AI API error: ${JSON.stringify(json)}`);
+    if (!response.ok) throw new Error(`AI API error: ${JSON.stringify(json)} + ${groqKey}`);
     return json.choices[0].message.content.trim();
 }
 
