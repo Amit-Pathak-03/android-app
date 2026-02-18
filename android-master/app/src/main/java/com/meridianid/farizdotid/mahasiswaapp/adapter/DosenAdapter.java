@@ -1,7 +1,7 @@
 package com.meridianid.farizdotid.mahasiswaapp.adapter;
 
-import android.content.Context;
 import android.graphics.Color;
+import android.support.annotation.NonNull;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -16,93 +16,75 @@ import com.meridianid.farizdotid.mahasiswaapp.model.SemuadosenItem;
 import java.util.List;
 import java.util.Random;
 
-import butterknife.BindView;
-import butterknife.ButterKnife;
+public class DosenAdapter extends RecyclerView.Adapter<DosenAdapter.DosenHolder> {
 
-/**
- * Created by fariz ramadhan.
- * website : www.farizdotid.com
- * github : https://github.com/farizdotid
- * linkedin : https://www.linkedin.com/in/farizramadhan/
- */
+    private final List<SemuadosenItem> semuadosenItemList;
+    private final Random randomGenerator = new Random();
 
-
-public class DosenAdapter extends RecyclerView.Adapter<DosenAdapter.DosenHolder>{
-
-    List<SemuadosenItem> semuadosenItemList;
-    Context mContext;
-
-    public String[] mColors = {
-            "#39add1", // light blue
-            "#3079ab", // dark blue
-            "#c25975", // mauve
-            "#e15258", // red
-            "#f9845b", // orange
-            "#838cc7", // lavender
-            "#7d669e", // purple
-            "#53bbb4", // aqua
-            "#51b46d", // green
-            "#e0ab18", // mustard
-            "#637a91", // dark gray
-            "#f092b0", // pink
-            "#b7c0c7"  // light gray
+    private static final String[] COLORS = {
+            "#39add1", "#3079ab", "#c25975", "#e15258", "#f9845b",
+            "#838cc7", "#7d669e", "#53bbb4", "#51b46d", "#e0ab18",
+            "#637a91", "#f092b0", "#b7c0c7"
     };
 
-    public DosenAdapter(Context context, List<SemuadosenItem> dosenList){
-        this.mContext = context;
-        semuadosenItemList = dosenList;
+    public DosenAdapter(List<SemuadosenItem> dosenList) {
+        this.semuadosenItemList = dosenList;
+    }
+
+    @NonNull
+    @Override
+    public DosenHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        View view = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.item_dosen, parent, false);
+        return new DosenHolder(view);
     }
 
     @Override
-    public DosenHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-        View itemView = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_dosen, parent, false);
-        return new DosenHolder(itemView);
-    }
-
-    @Override
-    public void onBindViewHolder(DosenHolder holder, int position) {
-        final SemuadosenItem semuadosenitem = semuadosenItemList.get(position);
-        holder.tvNamaDosen.setText(semuadosenitem.getNama());
-        holder.tvNamaMatkul.setText(semuadosenitem.getMatkul());
-
-        String namaDosen = semuadosenitem.getNama();
-        String firstCharNamaDosen = namaDosen.substring(0,1);
-        TextDrawable drawable = TextDrawable.builder()
-                .buildRound(firstCharNamaDosen, getColor());
-        holder.ivTextDrawable.setImageDrawable(drawable);
+    public void onBindViewHolder(@NonNull DosenHolder holder, int position) {
+        SemuadosenItem item = semuadosenItemList.get(position);
+        
+        if (item != null) {
+            holder.bind(item);
+        }
     }
 
     @Override
     public int getItemCount() {
-        return semuadosenItemList.size();
+        return semuadosenItemList != null ? semuadosenItemList.size() : 0;
     }
 
-    public class DosenHolder extends RecyclerView.ViewHolder{
-
-        @BindView(R.id.ivTextDrawable)
-        ImageView ivTextDrawable;
-        @BindView(R.id.tvNamaDosen)
-        TextView tvNamaDosen;
-        @BindView(R.id.tvNamaMatkul)
-        TextView tvNamaMatkul;
+    // --- ViewHolder Class ---
+    
+    public class DosenHolder extends RecyclerView.ViewHolder {
+        
+        // Manual binding if not using ViewBinding library yet
+        private final ImageView ivTextDrawable;
+        private final TextView tvNamaDosen;
+        private final TextView tvNamaMatkul;
 
         public DosenHolder(View itemView) {
             super(itemView);
+            ivTextDrawable = itemView.findViewById(R.id.ivTextDrawable);
+            tvNamaDosen = itemView.findViewById(R.id.tvNamaDosen);
+            tvNamaMatkul = itemView.findViewById(R.id.tvNamaMatkul);
+        }
 
-            ButterKnife.bind(this, itemView);
+        public void bind(SemuadosenItem item) {
+            tvNamaDosen.setText(item.getNama());
+            tvNamaMatkul.setText(item.getMatkul());
+
+            String firstChar = (item.getNama() != null && !item.getNama().isEmpty()) 
+                               ? item.getNama().substring(0, 1) : "?";
+
+            TextDrawable drawable = TextDrawable.builder()
+                    .buildRound(firstChar, getRandomColor());
+            
+            ivTextDrawable.setImageDrawable(drawable);
         }
     }
 
-    public int getColor() {
-        String color;
-
-        // Randomly select a fact
-        Random randomGenerator = new Random(); // Construct a new Random number generator
-        int randomNumber = randomGenerator.nextInt(mColors.length);
-
-        color = mColors[randomNumber];
-        int colorAsInt = Color.parseColor(color);
-
-        return colorAsInt;
+    private int getRandomColor() {
+        int index = randomGenerator.nextInt(COLORS.length);
+        return Color.parseColor(COLORS[index]);
     }
 }
