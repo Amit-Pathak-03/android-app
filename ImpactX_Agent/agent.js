@@ -60,7 +60,7 @@ async function processAgentTask(payload) {
     const diff = await impactLogic.getGitHubDiff(config.githubToken, repoOwner, repoName, sourceBranch, compareBranch);
     const tree = await impactLogic.getGitHubTree(config.githubToken, repoOwner, repoName, compareBranch);
 
-    const analysisJson = await impactLogic.summarizeImpact(null, config.groqKey, diff, tree);
+    const analysisJson = await impactLogic.summarizeImpact(config.groqKey, diff, tree);
     const analysis = JSON.parse(analysisJson);
 
     // 3. Generate Automated Test Cases
