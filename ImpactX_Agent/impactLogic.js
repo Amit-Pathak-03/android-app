@@ -82,12 +82,11 @@ Return your analysis in the following JSON format ONLY:
             body: JSON.stringify({ ...body, model: 'llama-3.3-70b-versatile' })
         });
     } else {
-        console.log(`Bearer ${groqKey}`);
         throw new Error('No Groq API Key provided for impact analysis');
     }
 
     const json = await response.json();
-    if (!response.ok) throw new Error(`${groqKey} AI API error: ${JSON.stringify(json)}`);
+    if (!response.ok) throw new Error(`AI API error Groq: ${JSON.stringify(json)}`);
     return json.choices[0].message.content.trim();
 }
 
@@ -106,22 +105,21 @@ Format as JSON:
 }
 `;
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${openRouterKey}`,
-            'Content-Type': 'application/json',
-            'X-Title': 'ImpactX-Agent'
+            'Authorization': `Bearer ${openRouterKey}`, // We reuse the key passed from agent.js, which we'll map to GROQ_API_KEY
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            model: 'mistralai/mistral-7b-instruct:free',
+            model: 'llama-3.3-70b-versatile',
             messages: [{ role: 'user', content: prompt }],
             response_format: { type: "json_object" }
         })
     });
 
     const json = await response.json();
-    if (!response.ok) throw new Error(`OpenRouter error: ${JSON.stringify(json)}`);
+    if (!response.ok) throw new Error(`Groq Test Gen error: ${JSON.stringify(json)}`);
     return json.choices[0].message.content.trim();
 }
 

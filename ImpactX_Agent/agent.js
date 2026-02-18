@@ -50,17 +50,13 @@ async function processAgentTask(payload) {
     EMAIL_TO: process.env.EMAIL_TO
   };
 
-
   if (!config.githubToken) {
     throw new Error('Missing GITHUB_TOKEN in environment variables');
+  } else if (!config.groqKey){
+     throw new Error('Missing GROQ_API_KEY in environment variables');
+  } else{
+    console.log ("Keys fetched sucessfully");
   }
-
-  // Debug: Print environment keys (masked for security, but helps verify existence)
-  console.log('[Agent] 🛠 Debug Environment:');
-  console.log(`- GROQ_API_KEY: ${config.groqKey ? config.groqKey.substring(0, 6) + '...' + config.groqKey.slice(-4) : 'MISSING'}`);
-  console.log(`- OPENROUTER_API_KEY: ${config.openRouterKey ? config.openRouterKey.substring(0, 6) + '...' + config.openRouterKey.slice(-4) : 'MISSING'}`);
-  console.log(`- GITHUB_TOKEN: ${config.githubToken ? 'PRESENT' : 'MISSING'}`);
-  console.log(`- JIRA_URL: ${config.jiraUrl || 'MISSING'}`);
 
   try {
     // 2. Perform AI-Powered Impact Analysis
@@ -73,7 +69,7 @@ async function processAgentTask(payload) {
 
     // 3. Generate Automated Test Cases
     console.log(`[Agent] 🧪 Generating test cases...`);
-    const testCasesJson = await impactLogic.generateTestCases(config.openRouterKey, diff, tree, repoOwner, repoName);
+    const testCasesJson = await impactLogic.generateTestCases(config.groqKey, diff, tree, repoOwner, repoName);
     const testCases = JSON.parse(testCasesJson);
 
     console.log(`[Agent] ✅ Analysis completed.`);
