@@ -23,7 +23,12 @@ jobs:
           GH_EVENT: ${{ toJson(github.event) }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}           # Added
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }} # Added
           JIRA_URL: ${{ secrets.JIRA_URL }}
           JIRA_TOKEN: ${{ secrets.JIRA_TOKEN }}
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_HOST: "smtp.gmail.com"  # Can be hardcoded or a secret
+          EMAIL_PORT: "587"             # Can be hardcoded or a secret
