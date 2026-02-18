@@ -9,7 +9,7 @@ jobs:
   analyze:
     # Only run if the PR was actually merged (not just closed)
     if: github.event.pull_request.merged == true
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     
     steps:
       - name: Checkout Code
