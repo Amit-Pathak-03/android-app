@@ -16,7 +16,7 @@ jobs:
           node-version: 18
       - name: Run ImpactX Agent
         run: |
-          cd "agent new"
+          cd "ImpactX_Agent"  # Make sure this matches your folder name exactly
           npm install
           node -e "require('./agent').processAgentTask(JSON.parse(process.env.GH_EVENT))"
         env:
