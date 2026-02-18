@@ -1,17 +1,15 @@
 package com.meridianid.farizdotid.mahasiswaapp.activity;
 
-import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.Toast;
 
-import com.meridianid.farizdotid.mahasiswaapp.R;
+import com.meridianid.farizdotid.mahasiswaapp.databinding.ActivityLoginBinding;
 import com.meridianid.farizdotid.mahasiswaapp.util.SharedPrefManager;
 import com.meridianid.farizdotid.mahasiswaapp.util.api.BaseApiService;
 import com.meridianid.farizdotid.mahasiswaapp.util.api.UtilsApi;
@@ -21,8 +19,6 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 
-import butterknife.BindView;
-import butterknife.ButterKnife;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -30,92 +26,109 @@ import retrofit2.Response;
 
 public class LoginActivity extends AppCompatActivity {
 
-    @BindView(R.id.etEmail) EditText etEmail;
-    @BindView(R.id.etPassword) EditText etPassword;
-    @BindView(R.id.btnLogin) Button btnLogin;
-    @BindView(R.id.btnRegister) Button btnRegister;
-    ProgressDialog loading;
-
-    Context mContext;
-    BaseApiService mApiService;
-
-    SharedPrefManager sharedPrefManager;
+    private ActivityLoginBinding binding;
+    private BaseApiService mApiService;
+    private SharedPrefManager sharedPrefManager;
+    private Context mContext;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_login);
-        getSupportActionBar().hide();
+        
+        // 1. Initialize View Binding
+        binding = ActivityLoginBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+        
+        if (getSupportActionBar() != null) getSupportActionBar().hide();
 
-        ButterKnife.bind(this);
+        initDependencies();
+        checkSession();
+        setupClickListeners();
+    }
+
+    private void initDependencies() {
         mContext = this;
-        mApiService = UtilsApi.getAPIService(); // meng-init yang ada di package apihelper
+        mApiService = UtilsApi.getAPIService();
         sharedPrefManager = new SharedPrefManager(this);
+    }
 
-        btnLogin.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                loading = ProgressDialog.show(mContext, null, "Harap Tunggu...", true, false);
-                requestLogin();
-            }
-        });
-
-        btnRegister.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(mContext, RegisterActivity.class));
-            }
-        });
-
-        // Code berikut berfungsi untuk mengecek session, Jika session true ( sudah login )
-        // maka langsung memulai MainActivity.
-        if (sharedPrefManager.getSPSudahLogin()){
-            startActivity(new Intent(LoginActivity.this, MainActivity.class)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK));
-            finish();
+    private void checkSession() {
+        if (sharedPrefManager.getSPSudahLogin()) {
+            navigateToMain();
         }
     }
 
-    private void requestLogin(){
-        mApiService.loginRequest(etEmail.getText().toString(), etPassword.getText().toString())
+    private void setupClickListeners() {
+        binding.btnLogin.setOnClickListener(v -> {
+            showLoading(true);
+            requestLogin();
+        });
+
+        binding.btnRegister.setOnClickListener(v -> 
+            startActivity(new Intent(mContext, RegisterActivity.class))
+        );
+    }
+
+    private void requestLogin() {
+        String email = binding.etEmail.getText().toString();
+        String password = binding.etPassword.getText().toString();
+
+        mApiService.loginRequest(email, password)
                 .enqueue(new Callback<ResponseBody>() {
                     @Override
-                    public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                        if (response.isSuccessful()){
-                            loading.dismiss();
-                            try {
-                                JSONObject jsonRESULTS = new JSONObject(response.body().string());
-                                if (jsonRESULTS.getString("error").equals("false")){
-                                    // Jika login berhasil maka data nama yang ada di response API
-                                    // akan diparsing ke activity selanjutnya.
-                                    Toast.makeText(mContext, "BERHASIL LOGIN", Toast.LENGTH_SHORT).show();
-                                    String nama = jsonRESULTS.getJSONObject("user").getString("nama");
-                                    sharedPrefManager.saveSPString(SharedPrefManager.SP_NAMA, nama);
-                                    // Shared Pref ini berfungsi untuk menjadi trigger session login
-                                    sharedPrefManager.saveSPBoolean(SharedPrefManager.SP_SUDAH_LOGIN, true);
-                                    startActivity(new Intent(mContext, MainActivity.class)
-                                            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK));
-                                    finish();
-                                } else {
-                                    // Jika login gagal
-                                    String error_message = jsonRESULTS.getString("error_msg");
-                                    Toast.makeText(mContext, error_message, Toast.LENGTH_SHORT).show();
-                                }
-                            } catch (JSONException e) {
-                                e.printStackTrace();
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
+                    public void onResponse(@NonNull Call<ResponseBody> call, @NonNull Response<ResponseBody> response) {
+                        showLoading(false);
+                        if (response.isSuccessful() && response.body() != null) {
+                            handleLoginSuccess(response.body());
                         } else {
-                            loading.dismiss();
+                            Toast.makeText(mContext, "Gagal terhubung ke server", Toast.LENGTH_SHORT).show();
                         }
                     }
 
                     @Override
-                    public void onFailure(Call<ResponseBody> call, Throwable t) {
-                        Log.e("debug", "onFailure: ERROR > " + t.toString());
-                        loading.dismiss();
+                    public void onFailure(@NonNull Call<ResponseBody> call, @NonNull Throwable t) {
+                        Log.e("LoginActivity", "onFailure: " + t.getMessage());
+                        showLoading(false);
+                        Toast.makeText(mContext, "Masalah Koneksi", Toast.LENGTH_SHORT).show();
                     }
                 });
+    }
+
+    private void handleLoginSuccess(ResponseBody body) {
+        try {
+            // Recommendation: Use GSON/Moshi to map this automatically in the future
+            JSONObject jsonRESULTS = new JSONObject(body.string());
+            if (jsonRESULTS.getString("error").equals("false")) {
+                String nama = jsonRESULTS.getJSONObject("user").getString("nama");
+                
+                sharedPrefManager.saveSPString(SharedPrefManager.SP_NAMA, nama);
+                sharedPrefManager.saveSPBoolean(SharedPrefManager.SP_SUDAH_LOGIN, true);
+                
+                Toast.makeText(mContext, "BERHASIL LOGIN", Toast.LENGTH_SHORT).show();
+                navigateToMain();
+            } else {
+                String errorMsg = jsonRESULTS.optString("error_msg", "Login Gagal");
+                Toast.makeText(mContext, errorMsg, Toast.LENGTH_SHORT).show();
+            }
+        } catch (JSONException | IOException e) {
+            Log.error("LoginActivity", "Parsing error", e);
+        }
+    }
+
+    private void navigateToMain() {
+        Intent intent = new Intent(mContext, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+        finish();
+    }
+
+    private void showLoading(boolean isLoading) {
+        // Ideally, toggle a ProgressBar in your XML: 
+        // binding.progressBar.setVisibility(isLoading ? View.VISIBLE : View.GONE);
+        // binding.btnLogin.setEnabled(!isLoading);
+        if (isLoading) {
+            // Note: ProgressDialog is deprecated, use a ProgressBar in layout instead
+            Toast.makeText(mContext, "Harap Tunggu...", Toast.LENGTH_SHORT).show();
+        }
     }
 }
