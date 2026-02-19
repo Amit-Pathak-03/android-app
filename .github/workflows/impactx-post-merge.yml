@@ -2,14 +2,12 @@ name: ImpactX Post-Merge Analysis
 
 on:
   pull_request:
-    types: [closed]
+    types: [opened, synchronize, reopened, closed]
     branches: [master, main]
 
 jobs:
   analyze:
-    # Only run if the PR was actually merged (not just closed)
-    if: github.event.pull_request.merged == true
-    runs-on: macos-15
+    runs-on: ubuntu-latest
     
     steps:
       - name: Checkout Code

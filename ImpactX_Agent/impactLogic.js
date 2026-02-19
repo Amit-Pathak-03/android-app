@@ -33,32 +33,37 @@ async function getGitHubTree(token, owner, repo, branch) {
     });
     if (!resp.ok) return null;
     const json = await resp.json();
-    return (json.tree || []).map(i => ({ path: i.path, type: i.type === 'tree' ? 'directory' : 'file' })).slice(0, 300);
+    return (json.tree || [])
+        .filter(i => !i.path.startsWith('ImpactX_Agent/'))
+        .map(i => ({ path: i.path, type: i.type === 'tree' ? 'directory' : 'file' }))
+        .slice(0, 300);
 }
 
 async function summarizeImpact(groqKey, diff, structure) {
+    // PRE-PROCESS: Filter out ImpactX_Agent from the diff to prevent "Circular Analysis"
+    const filteredDiff = (diff || '').split('diff --git ')
+        .filter(file => file.trim() && !file.includes('a/ImpactX_Agent/') && !file.includes('b/ImpactX_Agent/'))
+        .join('diff --git ');
+
     const prompt = `
 You are a Senior Staff Software Architect. Perform a rigorous technical impact analysis on the following code changes.
-Your goal is to identify ALL potential ripple effects, logic breaks, and architectural risks.
+Your goal is to identify ALL potential ripple effects, logic breaks, and architectural risks in the APPLICATION code.
 
 [PROJECT STRUCTURE]
 ${JSON.stringify(structure || [], null, 2).substring(0, 4000)}
 
 [GIT DIFF TO ANALYZE]
-${diff.substring(0, 8000)}
+${filteredDiff.substring(0, 8000)}
 
 [ANALYSIS GUIDELINES]
 1. FOCUS: Only analyze the impacts of the code changes shown in the [GIT DIFF].
-2. SCOPE: Ignore the analyzer tool itself "ImpactX_Agent and .github/workflows". Focus on the Business logic based on [GIT DIFF].
-3. Logic & State: How do these changes affect the flow of data or internal state?
-4. API & Integration: Are there breaking changes to signatures or payloads?
-5. Data Persistence: Does it affect database schemas or performance?
-6. UI & Side Effects: Will this break existing UI components?
-7. Security: Does it introduce new vulnerabilities?
+2. SCOPE: Ignore the analyzer tool itself (ImpactX_Agent). Focus on the Android/Business logic.
+3. LOGIC: If a change is only to tests or documentation, the risk score MUST be LOW.
+4. DETAIL: Be specific about which activities or classes are affected.
 
 Return your analysis in the following JSON format ONLY:
 {
-  "risk": { "score": "CRITICAL/HIGH/MEDIUM/LOW", "reasoning": "..." },
+  "risk": { "score": "CRITICAL/HIGH/MEDIUM/LOW", "reasoning": "Specify EXACTLY why this risk was chosen based ONLY on the diff." },
   "keyChanges": ["..."],
   "technicalDetails": {
     "API Impact": "...",
@@ -93,16 +98,39 @@ Return your analysis in the following JSON format ONLY:
 }
 
 async function generateTestCases(openRouterKey, diff, structure, owner, repo) {
-    const prompt = `
-Generate 8-10 manual test cases based on these code changes in ${owner}/${repo}.
-STRUCTURE: ${JSON.stringify((structure || []).slice(0, 50))}
-DIFF: ${diff.substring(0, 5000)}
+    // PRE-PROCESS: Filter out ImpactX_Agent from the diff
+    const filteredDiff = (diff || '').split('diff --git ')
+        .filter(file => file.trim() && !file.includes('a/ImpactX_Agent/') && !file.includes('b/ImpactX_Agent/'))
+        .join('diff --git ');
 
-Format as JSON:
+    const prompt = `
+You are a Lead QA Automation Engineer. Generate 8-10 comprehensive manual test cases based on the provided code changes in ${owner}/${repo}.
+
+[CONTEXT]
+The changes affect the following parts of the system. Your test cases should cover both direct changes and potential regression areas.
+
+[STRUCTURE]
+${JSON.stringify((structure || []).slice(0, 50))}
+
+[DIFF]
+${filteredDiff.substring(0, 5000)}
+
+[REQUIREMENTS]
+1. TITLE: Descriptive and concise (e.g., "Verify user login with invalid credentials").
+2. STEPS: Provide a detailed, step-by-step guide (array of strings) to execute the test. Be specific about inputs and expected interactions.
+3. EXPECTED RESULT: Clearly state what the successful outcome looks like.
+4. PRIORITY: Assign HIGH, MEDIUM, or LOW based on the impact of the area changed.
+
+Format your response as a valid JSON object ONLY:
 {
-  "summary": "...",
+  "summary": "Brief overview of the testing strategy for these changes.",
   "testCases": [
-    { "title": "...", "steps": ["..."], "expectedResult": "...", "priority": "HIGH/MEDIUM/LOW" }
+    { 
+      "title": "...", 
+      "steps": ["Step 1...", "Step 2...", "Step 3..."], 
+      "expectedResult": "...", 
+      "priority": "HIGH/MEDIUM/LOW" 
+    }
   ]
 }
 `;

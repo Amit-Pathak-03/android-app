@@ -4,7 +4,7 @@ const emailService = require('./emailService');
 
 /**
  * ImpactX Automated Agent (Standalone Version)
- * Monitors GitHub merges to master and performs:
+ * Monitors GitHub Pull Requests and performs:
  * 1. Deep Impact Analysis
  * 2. Automated Test Case Generation
  * 3. JIRA Synchronization
@@ -14,9 +14,16 @@ const emailService = require('./emailService');
 async function processAgentTask(payload) {
   const { action, pull_request, repository } = payload;
 
-  // 1. Validate if it's a merge event to master
-  if (action !== 'closed' || !pull_request.merged) {
-    console.log(`[Agent] Skipping: action=${action}, merged=${pull_request.merged}`);
+  // 1. Validate if it's a PR event targeting master/main
+  const allowedActions = ['opened', 'synchronize', 'reopened', 'closed'];
+  if (!allowedActions.includes(action)) {
+    console.log(`[Agent] Skipping: action=${action}`);
+    return { status: 'skipped' };
+  }
+
+  // If closed, only proceed if merged (the old behavior)
+  if (action === 'closed' && !pull_request.merged) {
+    console.log(`[Agent] Skipping: PR closed without merge`);
     return { status: 'skipped' };
   }
 
@@ -32,7 +39,7 @@ async function processAgentTask(payload) {
   const compareBranch = pull_request.head.ref;
   const prNumber = pull_request.number;
 
-  console.log(`[Agent] 🚀 Merge Detected: ${compareBranch} -> ${sourceBranch} (PR #${prNumber})`);
+  console.log(`[Agent] 🚀 PR Detected: ${compareBranch} -> ${sourceBranch} (Action: ${action}, PR #${prNumber})`);
 
   // Configuration from Environment Variables (Standalone mode)
   const config = {
@@ -52,10 +59,10 @@ async function processAgentTask(payload) {
 
   if (!config.githubToken) {
     throw new Error('Missing GITHUB_TOKEN in environment variables');
-  } else if (!config.groqKey){
-     throw new Error('Missing GROQ_API_KEY in environment variables');
-  } else{
-    console.log ("Keys fetched sucessfully");
+  } else if (!config.groqKey) {
+    throw new Error('Missing GROQ_API_KEY in environment variables');
+  } else {
+    console.log("[Agent] 🔑 Keys fetched successfully");
   }
 
   try {
@@ -111,8 +118,9 @@ async function handleJiraPosting(config, pr, analysis, testCases) {
     const jiraDomain = config.jiraUrl.match(/https?:\/\/([^/]+)/)[0];
     const targetUrl = `${jiraDomain}/browse/${jiraKey}`;
 
+    const header = action === 'closed' ? 'Post-Merge Analysis' : 'Impact Analysis';
     const commentBody = `
-### 🤖 ImpactX AI: post-Merge Analysis (PR #${pr.number})
+### 🤖 ImpactX AI: ${header} (PR #${pr.number})
 **Risk Level:** ${analysis.risk?.score || 'IDENTIFIED'}
 
 #### 📝 Summary
@@ -123,7 +131,10 @@ ${analysis.risk?.reasoning || 'No summary provided.'}
 - **Logic:** ${analysis.technicalDetails?.["Logic Impact"] || 'N/A'}
 
 #### 🧪 Suggested Test Cases
-${(testCases.testCases || []).slice(0, 5).map(tc => `- [${tc.priority}] **${tc.title}**: ${tc.expectedResult}`).join('\n')}
+${(testCases.testCases || []).slice(0, 5).map(tc => {
+      const steps = (tc.steps || []).map((s, i) => `   ${i + 1}. ${s}`).join('\n');
+      return `- [${tc.priority}] **${tc.title}**\n**Steps:**\n${steps}\n**Expected:** ${tc.expectedResult}`;
+    }).join('\n\n')}
 
 ---
 *Standalone ImpactX Agent*
