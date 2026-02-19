@@ -64,9 +64,9 @@ public class LoginActivity extends AppCompatActivity {
             requestLogin();
         });
 
-        binding.btnRegister.setOnClickListener(v -> 
-            startActivity(new Intent(mContext, RegisterActivity.class))
-        );
+        // binding.btnRegister.setOnClickListener(v -> 
+        //     startActivity(new Intent(mContext, RegisterActivity.class))
+        // );
     }
 
     private void requestLogin() {
@@ -80,9 +80,10 @@ public class LoginActivity extends AppCompatActivity {
                         showLoading(false);
                         if (response.isSuccessful() && response.body() != null) {
                             handleLoginSuccess(response.body());
-                        } else {
-                            Toast.makeText(mContext, "Gagal terhubung ke server", Toast.LENGTH_SHORT).show();
-                        }
+                        } 
+                        // else {
+                        //     Toast.makeText(mContext, "Gagal terhubung ke server", Toast.LENGTH_SHORT).show();
+                        // }
                     }
 
                     @Override
@@ -102,7 +103,7 @@ public class LoginActivity extends AppCompatActivity {
                 String nama = jsonRESULTS.getJSONObject("user").getString("nama");
                 
                 sharedPrefManager.saveSPString(SharedPrefManager.SP_NAMA, nama);
-                sharedPrefManager.saveSPBoolean(SharedPrefManager.SP_SUDAH_LOGIN, true);
+                // sharedPrefManager.saveSPBoolean(SharedPrefManager.SP_SUDAH_LOGIN, true);
                 
                 Toast.makeText(mContext, "BERHASIL LOGIN", Toast.LENGTH_SHORT).show();
                 navigateToMain();
@@ -132,3 +133,4 @@ public class LoginActivity extends AppCompatActivity {
         }
     }
 }
+
