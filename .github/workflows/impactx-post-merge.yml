@@ -1,9 +1,9 @@
-name: ImpactX Post-Merge Analysis
+name: ImpactX Analysis
 
 on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
-    branches: [master, main]
+  workflow_dispatch: # Allow manual trigger for testing
 
 jobs:
   analyze:
