@@ -9,7 +9,7 @@ public class ResponseDosen{
 	private List<SemuadosenItem> semuadosen;
 
 	@SerializedName("error")
-	private boolean error;
+	private boolean errorr;
 
 	@SerializedName("message")
 	private String message;
