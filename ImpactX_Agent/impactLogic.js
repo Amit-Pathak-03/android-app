@@ -75,12 +75,30 @@ async function getJiraTicket(jiraUrl, jiraEmail, jiraToken, issueKey) {
         }
         
         const issue = await resp.json();
+        
+        // Parse description from ADF (Atlassian Document Format) or plain text
+        let description = '';
+        if (issue.fields.description) {
+            if (typeof issue.fields.description === 'string') {
+                description = issue.fields.description;
+            } else if (issue.fields.description.content) {
+                // ADF format: recursively extract text from content nodes
+                const extractText = (node) => {
+                    if (typeof node === 'string') return node;
+                    if (node.text) return node.text;
+                    if (node.content && Array.isArray(node.content)) {
+                        return node.content.map(extractText).join('');
+                    }
+                    return '';
+                };
+                description = issue.fields.description.content.map(extractText).join('\n');
+            }
+        }
+        
         const ticketInfo = {
             key: issue.key,
             title: issue.fields.summary || '',
-            description: issue.fields.description ? 
-                (typeof issue.fields.description === 'string' ? issue.fields.description : 
-                 issue.fields.description.content?.map(c => c.content?.map(ct => ct.text || '').join('') || '').join('\n') || '') : '',
+            description: description,
             status: issue.fields.status?.name || '',
             priority: issue.fields.priority?.name || '',
             issueType: issue.fields.issuetype?.name || ''
@@ -103,19 +121,27 @@ async function summarizeImpact(groqKey, diff, structure, jiraTicket = null) {
     // Build prompt with JIRA ticket context if available
     let jiraContext = '';
     if (jiraTicket) {
+        // Extract acceptance criteria if present in description
+        const description = jiraTicket.description || '';
+        const acceptanceCriteriaMatch = description.match(/(?:Acceptance Criteria|AC|Requirements?):?\s*([\s\S]*?)(?:\n\n|\n[A-Z]|$)/i);
+        const acceptanceCriteria = acceptanceCriteriaMatch ? acceptanceCriteriaMatch[1].trim() : '';
+        
         jiraContext = `
 [JIRA TICKET REQUIREMENTS]
 Ticket: ${jiraTicket.key}
 Title: ${jiraTicket.title}
-Description: ${jiraTicket.description.substring(0, 2000)}
+Description: ${description.substring(0, 3000)}
+${acceptanceCriteria ? `Acceptance Criteria:\n${acceptanceCriteria.substring(0, 2000)}` : ''}
 Status: ${jiraTicket.status}
 Priority: ${jiraTicket.priority}
+Issue Type: ${jiraTicket.issueType}
 
 IMPORTANT: Compare the JIRA ticket requirements with the actual code changes. Identify:
 - What was requested vs what was implemented
-- Missing requirements that should have been addressed
+- Missing requirements that should have been addressed (especially from Acceptance Criteria)
 - Additional changes beyond the ticket scope
-- Alignment between ticket description and code changes
+- Alignment between ticket description, acceptance criteria, and code changes
+- For Android apps: Pay special attention to UI Impact (UI changes, user experience, loading states, error displays)
 `;
     }
 
@@ -165,7 +191,7 @@ Return your analysis in the following JSON format ONLY:
     const body = {
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: "json_object" },
-        max_tokens: 1000
+        max_tokens: jiraTicket ? 2500 : 1500  // More tokens when analyzing requirements alignment
     };
 
     let response;
