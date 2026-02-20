@@ -48,7 +48,7 @@ public class RegisterActivity extends AppCompatActivity {
         mContext = this;
         mApiService = UtilsApi.getAPIService();
 
-        btnRegister.setOnClickListener(new View.OnClickListener() {
+        // btnRegister.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 loading = ProgressDialog.show(mContext, null, "Harap Tunggu...", true, false);
@@ -95,3 +95,4 @@ public class RegisterActivity extends AppCompatActivity {
                 });
     }
 }
+
