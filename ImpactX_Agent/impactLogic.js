@@ -104,7 +104,8 @@ async function generateTestCases(openRouterKey, diff, structure, owner, repo) {
         .join('diff --git ');
 
     const prompt = `
-You are a Lead QA Automation Engineer. Generate 8-10 comprehensive manual test cases based on the provided code changes in ${owner}/${repo}.
+You are a Lead QA Automation Engineer. Generate comprehensive manual test cases based on the provided code changes in ${owner}/${repo}.
+Generate only relevant positive, negative, edge, performance, and security test cases based on this code change. Do not force categories. Provide high-value scenarios in a table with steps and expected results. Minimum 3–4 cases, no duplicates, include regression risks and missing validations.
 
 [CONTEXT]
 The changes affect the following parts of the system. Your test cases should cover both direct changes and potential regression areas.
