@@ -94,6 +94,8 @@ async function processAgentTask(payload) {
           );
           if (jiraTicket) {
             console.log(`[Agent] ✅ Loaded ticket: ${jiraTicket.title}`);
+            console.log(`[Agent] 📋 Description length: ${jiraTicket.description?.length || 0} chars`);
+            console.log(`[Agent] 📋 Status: ${jiraTicket.status}, Priority: ${jiraTicket.priority}`);
           } else {
             console.log(`[Agent] ⚠️  Could not fetch ticket details, proceeding without ticket context`);
           }
@@ -112,6 +114,15 @@ async function processAgentTask(payload) {
 
     const analysisJson = await impactLogic.summarizeImpact(config.groqKey, diff, tree, jiraTicket);
     const analysis = JSON.parse(analysisJson);
+    
+    // Log requirements alignment if available
+    if (jiraTicket && analysis.requirementsAlignment) {
+      console.log(`[Agent] 🎯 Requirements Alignment Score: ${analysis.requirementsAlignment.alignmentScore || 'N/A'}`);
+      console.log(`[Agent] 🎯 Fully Addressed: ${analysis.requirementsAlignment.fullyAddressed ? 'Yes' : 'No'}`);
+      if (analysis.requirementsAlignment.missingRequirements?.length > 0) {
+        console.log(`[Agent] ⚠️  Missing Requirements: ${analysis.requirementsAlignment.missingRequirements.length} items`);
+      }
+    }
 
     // 3. Generate Automated Test Cases
     console.log(`[Agent] 🧪 Generating test cases...`);
@@ -197,6 +208,7 @@ ${analysis.requirementsAlignment.additionalChanges?.length > 0 ? `- **Additional
 - **API:** ${analysis.technicalDetails?.["API Impact"] || 'N/A'}
 - **Database:** ${analysis.technicalDetails?.["Database Impact"] || 'N/A'}
 - **Logic:** ${analysis.technicalDetails?.["Logic Impact"] || 'N/A'}
+- **UI:** ${analysis.technicalDetails?.["UI Impact"] || 'N/A'}
 - **Security:** ${analysis.technicalDetails?.["Security Impact"] || 'N/A'}
 
 #### 🧪 Suggested Test Cases
