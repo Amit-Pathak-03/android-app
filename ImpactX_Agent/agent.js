@@ -14,6 +14,11 @@ const emailService = require('./emailService');
 async function processAgentTask(payload) {
   const { action, pull_request, repository } = payload;
 
+  // Preliminary logging for debugging
+  const prNum = pull_request?.number || 'N/A';
+  const targetBranch = pull_request?.base?.ref || 'N/A';
+  console.log(`[Agent] Received event: action=${action}, PR=#${prNum}, Target=${targetBranch}`);
+
   // 1. Validate if it's a PR event targeting master/main
   const allowedActions = ['opened', 'synchronize', 'reopened', 'closed'];
   if (!allowedActions.includes(action)) {
@@ -82,7 +87,7 @@ async function processAgentTask(payload) {
     console.log(`[Agent] ✅ Analysis completed.`);
 
     // 4. Post to JIRA
-    await handleJiraPosting(config, pull_request, analysis, testCases);
+    await handleJiraPosting(config, pull_request, analysis, testCases, action);
 
     // 5. Send Email Notification
     console.log(`[Agent] 📧 Sending email report...`);
@@ -100,7 +105,7 @@ async function processAgentTask(payload) {
   }
 }
 
-async function handleJiraPosting(config, pr, analysis, testCases) {
+async function handleJiraPosting(config, pr, analysis, testCases, action) {
   if (!config.jiraUrl || !config.jiraToken || !config.jiraEmail) {
     console.log(`[Agent] JIRA not configured. Skipping post.`);
     return;
@@ -108,18 +113,22 @@ async function handleJiraPosting(config, pr, analysis, testCases) {
 
   // Detect JIRA ID
   const jiraRegex = /([A-Z]+-[0-9]+)/i;
-  const searchString = `${pr.title} ${pr.head.ref} ${pr.body}`;
+  const searchString = `${pr.title} ${pr.head.ref} ${pr.body || ''}`;
   const match = searchString.match(jiraRegex);
 
-  if (match) {
-    const jiraKey = match[1].toUpperCase();
-    console.log(`[Agent] 🎫 Found JIRA Key: ${jiraKey}`);
+  if (!match) {
+    console.log(`[Agent] ⚠️  No JIRA key found in PR title, branch, or body. Searched: "${searchString.substring(0, 100)}..."`);
+    return;
+  }
 
-    const jiraDomain = config.jiraUrl.match(/https?:\/\/([^/]+)/)[0];
-    const targetUrl = `${jiraDomain}/browse/${jiraKey}`;
+  const jiraKey = match[1].toUpperCase();
+  console.log(`[Agent] 🎫 Found JIRA Key: ${jiraKey}`);
 
-    const header = pr.title ? 'Post-Merge Analysis' : 'Impact Analysis';
-    const commentBody = `
+  const jiraDomain = config.jiraUrl.match(/https?:\/\/([^/]+)/)[0];
+  const targetUrl = `${jiraDomain}/browse/${jiraKey}`;
+
+  const header = action === 'closed' ? 'Post-Merge Analysis' : 'Impact Analysis';
+  const commentBody = `
 ### 🤖 ImpactX AI: ${header} (PR #${pr.number})
 **Risk Level:** ${analysis.risk?.score || 'IDENTIFIED'}
 
@@ -140,12 +149,12 @@ ${(testCases.testCases || []).slice(0, 5).map(tc => {
 *Standalone ImpactX Agent*
     `.trim();
 
-    try {
-      await impactLogic.postJiraComment(targetUrl, config.jiraEmail, config.jiraToken, commentBody);
-      console.log(`[Agent] 🚀 Posted to JIRA ${jiraKey}`);
-    } catch (err) {
-      console.error(`[Agent] JIRA Post Failed:`, err.message);
-    }
+  try {
+    await impactLogic.postJiraComment(targetUrl, config.jiraEmail, config.jiraToken, commentBody);
+    console.log(`[Agent] 🚀 Posted to JIRA ${jiraKey}`);
+  } catch (err) {
+    console.error(`[Agent] ❌ JIRA Post Failed for ${jiraKey}:`, err.message);
+    console.error(`[Agent] Full error:`, err);
   }
 }
 
