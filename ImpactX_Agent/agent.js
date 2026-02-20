@@ -118,7 +118,7 @@ async function handleJiraPosting(config, pr, analysis, testCases) {
     const jiraDomain = config.jiraUrl.match(/https?:\/\/([^/]+)/)[0];
     const targetUrl = `${jiraDomain}/browse/${jiraKey}`;
 
-    const header = action === 'closed' ? 'Post-Merge Analysis' : 'Impact Analysis';
+    const header = pr.title ? 'Post-Merge Analysis' : 'Impact Analysis';
     const commentBody = `
 ### 🤖 ImpactX AI: ${header} (PR #${pr.number})
 **Risk Level:** ${analysis.risk?.score || 'IDENTIFIED'}
