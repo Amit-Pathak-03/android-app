@@ -115,12 +115,12 @@ public class LoginActivity extends AppCompatActivity {
         }
     }
 
-    private void navigateToMain() {
-        Intent intent = new Intent(mContext, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(intent);
-        finish();
-    }
+    // private void navigateToMain() {
+    //     Intent intent = new Intent(mContext, MainActivity.class);
+    //     intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+    //     startActivity(intent);
+    //     finish();
+    // }
 
     private void showLoading(boolean isLoading) {
         // Ideally, toggle a ProgressBar in your XML: 
@@ -132,3 +132,4 @@ public class LoginActivity extends AppCompatActivity {
         }
     }
 }
+
