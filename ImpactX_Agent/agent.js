@@ -56,7 +56,7 @@ async function processAgentTask(payload) {
     jiraToken: process.env.JIRA_TOKEN,
     // AIO TCMS Config
     aioBaseUrl: "https://genaibrainchild.atlassian.net/plugins/servlet/ac/com.kaanha.jira.tcms/aio-tcms-app-overview",
-    aioApiKey: "NTcwZjRiNWItZTRjNy0zMTJiLTljN2UtYzIxNmUwOWIxNDJmLmFkODFmZDg0LTYxY2EtNGM5Yi1iMjU0LTA2YzMwYzI4NTE5Mg==",
+    aioApiKey: "NTcwZjRiNWItZTRjNy0zMTJiLTljN2UtYzIxNmUwOWIxNDJmLjhlY2U3MzBmLWVmYjYtNGE3YS04YzBiLTJmNTQyNTQ1MjUzMA==",
     aioProjectId: "10000",
     // Email Config
     EMAIL_HOST: process.env.EMAIL_HOST,
