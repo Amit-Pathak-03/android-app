@@ -154,26 +154,86 @@ Format your response as a valid JSON object ONLY:
 }
 
 async function postJiraComment(jiraUrl, jiraEmail, jiraToken, commentBody) {
+    console.log(`[JIRA] Starting postJiraComment with URL: ${jiraUrl}`);
+    
     const hostMatch = jiraUrl.match(/https?:\/\/([^/]+)/);
     const keyMatch = jiraUrl.match(/browse\/([^/?]+)/);
-    if (!hostMatch || !keyMatch) throw new Error('Invalid JIRA URL');
+    if (!hostMatch || !keyMatch) {
+        console.error(`[JIRA] Invalid JIRA URL format. hostMatch: ${hostMatch}, keyMatch: ${keyMatch}`);
+        throw new Error('Invalid JIRA URL');
+    }
 
     const host = hostMatch[1];
     const issueKey = keyMatch[1];
     const apiUrl = `https://${host}/rest/api/3/issue/${issueKey}/comment`;
-    const auth = Buffer.from(`${jiraEmail}:${jiraToken}`).toString('base64');
+    
+    console.log(`[JIRA] Extracted - Host: ${host}, Issue Key: ${issueKey}`);
+    console.log(`[JIRA] API URL: ${apiUrl}`);
+    console.log(`[JIRA] Email: ${jiraEmail}, Token: ${jiraToken ? '***' + jiraToken.slice(-4) : 'MISSING'}`);
+
+    // Convert markdown text to JIRA's ADF (Atlassian Document Format)
+    // Simple approach: split by double newlines for paragraphs, preserve structure
+    const paragraphs = commentBody.split(/\n\n+/).filter(p => p.trim());
+    const content = [];
+    
+    for (const para of paragraphs) {
+        const lines = para.split('\n').filter(l => l.trim());
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            
+            // Simple markdown to ADF conversion
+            let text = trimmed;
+            const parts = [];
+            
+            // Handle bold (**text**)
+            const boldRegex = /\*\*([^*]+)\*\*/g;
+            let lastIndex = 0;
+            let match;
+            
+            while ((match = boldRegex.exec(text)) !== null) {
+                if (match.index > lastIndex) {
+                    parts.push({ type: "text", text: text.substring(lastIndex, match.index) });
+                }
+                parts.push({ type: "text", text: match[1], marks: [{ type: "strong" }] });
+                lastIndex = match.index + match[0].length;
+            }
+            if (lastIndex < text.length) {
+                parts.push({ type: "text", text: text.substring(lastIndex) });
+            }
+            
+            // If no bold found, use plain text
+            if (parts.length === 0) {
+                parts.push({ type: "text", text: text });
+            }
+            
+            content.push({
+                type: "paragraph",
+                content: parts
+            });
+        }
+    }
+    
+    // Fallback if no content
+    if (content.length === 0) {
+        content.push({
+            type: "paragraph",
+            content: [{ type: "text", text: commentBody }]
+        });
+    }
 
     const body = {
         body: {
             type: "doc",
             version: 1,
-            content: [
-                { type: "paragraph", content: [{ text: "ImpactX AI Analysis Report", type: "text", marks: [{ type: "strong" }] }] },
-                { type: "codeBlock", content: [{ text: commentBody, type: "text" }] }
-            ]
+            content: content
         }
     };
 
+    console.log(`[JIRA] Request body prepared, content items: ${content.length}`);
+    console.log(`[JIRA] Sending POST request to ${apiUrl}...`);
+
+    const auth = Buffer.from(`${jiraEmail}:${jiraToken}`).toString('base64');
     const resp = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -184,11 +244,17 @@ async function postJiraComment(jiraUrl, jiraEmail, jiraToken, commentBody) {
         body: JSON.stringify(body)
     });
 
+    console.log(`[JIRA] Response status: ${resp.status} ${resp.statusText}`);
+
     if (!resp.ok) {
         const errorText = await resp.text();
+        console.error(`[JIRA] API Error Response: ${errorText}`);
         throw new Error(`JIRA API error (${resp.status}): ${errorText}`);
     }
-    return await resp.json();
+    
+    const result = await resp.json();
+    console.log(`[JIRA] ✅ Comment posted successfully. Comment ID: ${result.id || 'N/A'}`);
+    return result;
 }
 
 module.exports = {
