@@ -39,15 +39,92 @@ async function getGitHubTree(token, owner, repo, branch) {
         .slice(0, 300);
 }
 
-async function summarizeImpact(groqKey, diff, structure) {
+/**
+ * Fetch JIRA ticket details including title and description
+ * @param {string} jiraUrl - JIRA base URL
+ * @param {string} jiraEmail - JIRA email for authentication
+ * @param {string} jiraToken - JIRA API token
+ * @param {string} issueKey - JIRA issue key (e.g., SCRUM-101)
+ * @returns {Promise<Object>} JIRA ticket details
+ */
+async function getJiraTicket(jiraUrl, jiraEmail, jiraToken, issueKey) {
+    console.log(`[JIRA] Fetching ticket details for ${issueKey}...`);
+    
+    const hostMatch = jiraUrl.match(/https?:\/\/([^/]+)/);
+    if (!hostMatch) {
+        throw new Error('Invalid JIRA URL format');
+    }
+    
+    const host = hostMatch[1];
+    const apiUrl = `https://${host}/rest/api/3/issue/${issueKey}`;
+    const auth = Buffer.from(`${jiraEmail}:${jiraToken}`).toString('base64');
+    
+    try {
+        const resp = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Basic ${auth}`,
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!resp.ok) {
+            const errorText = await resp.text();
+            console.error(`[JIRA] Failed to fetch ticket ${issueKey}: ${errorText}`);
+            return null;
+        }
+        
+        const issue = await resp.json();
+        const ticketInfo = {
+            key: issue.key,
+            title: issue.fields.summary || '',
+            description: issue.fields.description ? 
+                (typeof issue.fields.description === 'string' ? issue.fields.description : 
+                 issue.fields.description.content?.map(c => c.content?.map(ct => ct.text || '').join('') || '').join('\n') || '') : '',
+            status: issue.fields.status?.name || '',
+            priority: issue.fields.priority?.name || '',
+            issueType: issue.fields.issuetype?.name || ''
+        };
+        
+        console.log(`[JIRA] ✅ Fetched ticket: ${ticketInfo.key} - ${ticketInfo.title}`);
+        return ticketInfo;
+    } catch (err) {
+        console.error(`[JIRA] Error fetching ticket ${issueKey}:`, err.message);
+        return null;
+    }
+}
+
+async function summarizeImpact(groqKey, diff, structure, jiraTicket = null) {
     // PRE-PROCESS: Filter out ImpactX_Agent from the diff to prevent "Circular Analysis"
     const filteredDiff = (diff || '').split('diff --git ')
         .filter(file => file.trim() && !file.includes('a/ImpactX_Agent/') && !file.includes('b/ImpactX_Agent/'))
         .join('diff --git ');
 
+    // Build prompt with JIRA ticket context if available
+    let jiraContext = '';
+    if (jiraTicket) {
+        jiraContext = `
+[JIRA TICKET REQUIREMENTS]
+Ticket: ${jiraTicket.key}
+Title: ${jiraTicket.title}
+Description: ${jiraTicket.description.substring(0, 2000)}
+Status: ${jiraTicket.status}
+Priority: ${jiraTicket.priority}
+
+IMPORTANT: Compare the JIRA ticket requirements with the actual code changes. Identify:
+- What was requested vs what was implemented
+- Missing requirements that should have been addressed
+- Additional changes beyond the ticket scope
+- Alignment between ticket description and code changes
+`;
+    }
+
     const prompt = `
 You are a Senior Staff Software Architect. Perform a rigorous technical impact analysis on the following code changes.
 Your goal is to identify ALL potential ripple effects, logic breaks, and architectural risks in the APPLICATION code.
+${jiraTicket ? 'You have access to the JIRA ticket requirements - use them to provide context-aware analysis.' : ''}
+
+${jiraContext}
 
 [PROJECT STRUCTURE]
 ${JSON.stringify(structure || [], null, 2).substring(0, 4000)}
@@ -56,21 +133,31 @@ ${JSON.stringify(structure || [], null, 2).substring(0, 4000)}
 ${filteredDiff.substring(0, 8000)}
 
 [ANALYSIS GUIDELINES]
-1. FOCUS: Only analyze the impacts of the code changes shown in the [GIT DIFF].
-2. SCOPE: Ignore the analyzer tool itself (ImpactX_Agent). Focus on the Android/Business logic.
+1. FOCUS: Analyze the impacts of the code changes shown in the [GIT DIFF].
+${jiraTicket ? '2. COMPARISON: Compare the code changes against the JIRA ticket requirements. Identify gaps, over-implementation, or misalignment.' : '2. SCOPE: Ignore the analyzer tool itself (ImpactX_Agent). Focus on the application logic.'}
 3. LOGIC: If a change is only to tests or documentation, the risk score MUST be LOW.
-4. DETAIL: Be specific about which activities or classes are affected.
+4. DETAIL: Be specific about which files, functions, or classes are affected.
+${jiraTicket ? '5. REQUIREMENTS: Check if the implementation fully addresses the ticket requirements or if critical aspects are missing.' : ''}
 
 Return your analysis in the following JSON format ONLY:
 {
-  "risk": { "score": "CRITICAL/HIGH/MEDIUM/LOW", "reasoning": "Specify EXACTLY why this risk was chosen based ONLY on the diff." },
-  "keyChanges": ["..."],
+  "risk": { 
+    "score": "CRITICAL/HIGH/MEDIUM/LOW", 
+    "reasoning": "Specify EXACTLY why this risk was chosen. ${jiraTicket ? 'Include assessment of requirements coverage.' : 'Base on the diff analysis.'}" 
+  },
+  "keyChanges": ["List of major changes identified"],
+  "requirementsAlignment": ${jiraTicket ? `{
+    "fullyAddressed": true/false,
+    "missingRequirements": ["List any ticket requirements not addressed in code"],
+    "additionalChanges": ["List any code changes beyond ticket scope"],
+    "alignmentScore": "HIGH/MEDIUM/LOW"
+  }` : 'null'},
   "technicalDetails": {
-    "API Impact": "...",
-    "Database Impact": "...",
-    "Logic Impact": "...",
-    "UI Impact": "...",
-    "Security Impact": "..."
+    "API Impact": "Impact on API endpoints, request/response changes",
+    "Database Impact": "Database schema, queries, or data changes",
+    "Logic Impact": "Business logic, algorithms, or workflow changes",
+    "UI Impact": "User interface or frontend changes (if applicable)",
+    "Security Impact": "Security vulnerabilities, authentication, authorization changes"
   }
 }
 `;
@@ -104,7 +191,8 @@ async function generateTestCases(openRouterKey, diff, structure, owner, repo) {
         .join('diff --git ');
 
     const prompt = `
-You are a Lead QA Automation Engineer. Generate 8-10 comprehensive manual test cases based on the provided code changes in ${owner}/${repo}.
+You are a Lead QA Automation Engineer. Generate comprehensive manual test cases based on the provided code changes in ${owner}/${repo}.
+Generate only relevant positive, negative, edge, performance, and security test cases based on this code change. Do not force categories. Provide high-value scenarios in a table with steps and expected results. Minimum 3–4 cases, no duplicates, include regression risks and missing validations.
 
 [CONTEXT]
 The changes affect the following parts of the system. Your test cases should cover both direct changes and potential regression areas.
@@ -257,149 +345,12 @@ async function postJiraComment(jiraUrl, jiraEmail, jiraToken, commentBody) {
     return result;
 }
 
-/**
- * Generate and create test cases directly in AIO TCMS
- * This function generates test cases using AI and automatically creates them in AIO
- * @param {string} groqKey - Groq API key for AI generation
- * @param {string} diff - Git diff content
- * @param {Array} structure - Project structure/tree
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {string} aioBaseUrl - Base URL for AIO API
- * @param {string} aioApiKey - API key/token for authentication
- * @param {string} projectId - Project ID in AIO where test cases should be created
- * @param {string} jiraKey - Optional JIRA key to link test cases
- * @returns {Promise<Array>} Array of created test case IDs
- */
-async function generateAndCreateAioTestCases(groqKey, diff, structure, owner, repo, aioBaseUrl, aioApiKey, projectId, jiraKey = null) {
-    console.log(`[AIO] 🧪 Generating test cases for AIO TCMS...`);
-    
-    // Generate test cases using AI
-    const testCasesJson = await generateTestCases(groqKey, diff, structure, owner, repo);
-    const testCasesData = JSON.parse(testCasesJson);
-    
-    if (!testCasesData.testCases || testCasesData.testCases.length === 0) {
-        console.log(`[AIO] ⚠️  No test cases generated by AI`);
-        return [];
-    }
-    
-    console.log(`[AIO] ✅ Generated ${testCasesData.testCases.length} test cases. Creating in AIO...`);
-    
-    // Now create them in AIO
-    return await createAioTestCases(aioBaseUrl, aioApiKey, projectId, testCasesData.testCases, jiraKey);
-}
-
-/**
- * Create test cases in AIO TCMS
- * @param {string} aioBaseUrl - Base URL for AIO API (e.g., https://aio.example.com/api)
- * @param {string} aioApiKey - API key/token for authentication
- * @param {string} projectId - Project ID in AIO where test cases should be created
- * @param {Array} testCases - Array of test case objects with title, steps, expectedResult, priority
- * @param {string} jiraKey - Optional JIRA key to link test cases
- * @returns {Promise<Array>} Array of created test case IDs
- */
-async function createAioTestCases(aioBaseUrl, aioApiKey, projectId, testCases, jiraKey = null) {
-    console.log(`[AIO] Starting test case creation. Count: ${testCases.length}, Project: ${projectId}`);
-    
-    if (!aioBaseUrl || !aioApiKey || !projectId) {
-        throw new Error('AIO configuration incomplete. Required: AIO_BASE_URL, AIO_API_KEY, AIO_PROJECT_ID');
-    }
-
-    const createdCases = [];
-    const baseUrl = aioBaseUrl.endsWith('/') ? aioBaseUrl.slice(0, -1) : aioBaseUrl;
-    
-    // AIO API endpoint for creating test cases
-    // Adjust the endpoint path based on your AIO API documentation
-    const createEndpoint = `${baseUrl}/testcases`; // Common endpoint pattern
-    
-    for (const testCase of testCases) {
-        try {
-            // Map priority to AIO priority format (adjust based on AIO's priority values)
-            const priorityMap = {
-                'HIGH': 'High',
-                'MEDIUM': 'Medium',
-                'LOW': 'Low'
-            };
-            const aioPriority = priorityMap[testCase.priority] || 'Medium';
-
-            // Format test case body for AIO
-            // Adjust the structure based on your AIO API requirements
-            const testCaseBody = {
-                projectId: projectId,
-                title: testCase.title,
-                description: testCase.expectedResult || '',
-                steps: testCase.steps || [],
-                priority: aioPriority,
-                // Add additional fields if your AIO API requires them
-                // linkedIssue: jiraKey, // If AIO supports linking to JIRA
-                // tags: ['auto-generated', 'impactx'],
-                // status: 'Draft' // or 'Active' based on your workflow
-            };
-
-            console.log(`[AIO] Creating test case: "${testCase.title}"`);
-
-            // AIO TCMS uses JIRA authentication - try multiple auth methods
-            // The API key might be a base64 encoded token or JWT
-            let authHeader;
-            try {
-                // Try as Basic auth (email:token format) - decode if it's base64
-                const decoded = Buffer.from(aioApiKey, 'base64').toString('utf-8');
-                if (decoded.includes(':')) {
-                    // It's email:token format
-                    authHeader = `Basic ${Buffer.from(decoded).toString('base64')}`;
-                } else {
-                    // Use as Bearer token
-                    authHeader = `Bearer ${aioApiKey}`;
-                }
-            } catch {
-                // If decoding fails, try as Bearer token directly
-                authHeader = `Bearer ${aioApiKey}`;
-            }
-
-            const resp = await fetch(createEndpoint, {
-                method: 'POST',
-                headers: {
-                    'Authorization': authHeader,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(testCaseBody)
-            });
-
-            console.log(`[AIO] Response status: ${resp.status} ${resp.statusText}`);
-
-            if (!resp.ok) {
-                const errorText = await resp.text();
-                console.error(`[AIO] Failed to create test case "${testCase.title}": ${errorText}`);
-                throw new Error(`AIO API error (${resp.status}): ${errorText}`);
-            }
-
-            const result = await resp.json();
-            const testCaseId = result.id || result.testCaseId || result.data?.id;
-            createdCases.push({
-                id: testCaseId,
-                title: testCase.title,
-                original: testCase
-            });
-            
-            console.log(`[AIO] ✅ Created test case: ${testCaseId} - "${testCase.title}"`);
-
-        } catch (err) {
-            console.error(`[AIO] ❌ Error creating test case "${testCase.title}":`, err.message);
-            // Continue with other test cases even if one fails
-        }
-    }
-
-    console.log(`[AIO] ✅ Successfully created ${createdCases.length}/${testCases.length} test cases`);
-    return createdCases;
-}
-
 module.exports = {
     getGitHubDiff,
     getGitHubTree,
     summarizeImpact,
     generateTestCases,
     postJiraComment,
-    createAioTestCases,
-    generateAndCreateAioTestCases
+    getJiraTicket
 };
+
