@@ -338,10 +338,28 @@ async function createAioTestCases(aioBaseUrl, aioApiKey, projectId, testCases, j
 
             console.log(`[AIO] Creating test case: "${testCase.title}"`);
 
+            // AIO TCMS uses JIRA authentication - try multiple auth methods
+            // The API key might be a base64 encoded token or JWT
+            let authHeader;
+            try {
+                // Try as Basic auth (email:token format) - decode if it's base64
+                const decoded = Buffer.from(aioApiKey, 'base64').toString('utf-8');
+                if (decoded.includes(':')) {
+                    // It's email:token format
+                    authHeader = `Basic ${Buffer.from(decoded).toString('base64')}`;
+                } else {
+                    // Use as Bearer token
+                    authHeader = `Bearer ${aioApiKey}`;
+                }
+            } catch {
+                // If decoding fails, try as Bearer token directly
+                authHeader = `Bearer ${aioApiKey}`;
+            }
+
             const resp = await fetch(createEndpoint, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${aioApiKey}`, // or 'Api-Key ${aioApiKey}' depending on AIO
+                    'Authorization': authHeader,
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
