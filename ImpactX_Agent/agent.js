@@ -54,6 +54,10 @@ async function processAgentTask(payload) {
     jiraUrl: process.env.JIRA_URL,
     jiraEmail: process.env.JIRA_EMAIL,
     jiraToken: process.env.JIRA_TOKEN,
+    // AIO TCMS Config
+    aioBaseUrl: process.env.AIO_BASE_URL,
+    aioApiKey: process.env.AIO_API_KEY,
+    aioProjectId: process.env.AIO_PROJECT_ID,
     // Email Config
     EMAIL_HOST: process.env.EMAIL_HOST,
     EMAIL_PORT: process.env.EMAIL_PORT,
@@ -89,7 +93,10 @@ async function processAgentTask(payload) {
     // 4. Post to JIRA
     await handleJiraPosting(config, pull_request, analysis, testCases, action);
 
-    // 5. Send Email Notification
+    // 5. Generate and create test cases directly in AIO TCMS
+    await handleAioTestCaseCreation(config, pull_request, diff, tree, repoOwner, repoName, action);
+
+    // 6. Send Email Notification
     console.log(`[Agent] 📧 Sending email report...`);
     await emailService.sendImpactEmail(config, pull_request, analysis, testCases);
 
@@ -106,26 +113,39 @@ async function processAgentTask(payload) {
 }
 
 async function handleJiraPosting(config, pr, analysis, testCases, action) {
+  console.log(`[Agent] 🔍 Checking JIRA configuration...`);
+  console.log(`[Agent] JIRA_URL: ${config.jiraUrl ? 'Set' : 'MISSING'}`);
+  console.log(`[Agent] JIRA_EMAIL: ${config.jiraEmail ? config.jiraEmail : 'MISSING'}`);
+  console.log(`[Agent] JIRA_TOKEN: ${config.jiraToken ? 'Set (***' + config.jiraToken.slice(-4) + ')' : 'MISSING'}`);
+  
   if (!config.jiraUrl || !config.jiraToken || !config.jiraEmail) {
-    console.log(`[Agent] JIRA not configured. Skipping post.`);
+    console.log(`[Agent] ⚠️  JIRA not configured. Skipping post.`);
     return;
   }
 
   // Detect JIRA ID
   const jiraRegex = /([A-Z]+-[0-9]+)/i;
   const searchString = `${pr.title} ${pr.head.ref} ${pr.body || ''}`;
+  console.log(`[Agent] 🔍 Searching for JIRA key in: "${searchString.substring(0, 150)}..."`);
   const match = searchString.match(jiraRegex);
 
   if (!match) {
-    console.log(`[Agent] ⚠️  No JIRA key found in PR title, branch, or body. Searched: "${searchString.substring(0, 100)}..."`);
+    console.log(`[Agent] ⚠️  No JIRA key found in PR title, branch, or body.`);
+    console.log(`[Agent] Searched in: Title="${pr.title}", Branch="${pr.head.ref}", Body="${(pr.body || '').substring(0, 50)}..."`);
     return;
   }
 
   const jiraKey = match[1].toUpperCase();
   console.log(`[Agent] 🎫 Found JIRA Key: ${jiraKey}`);
 
-  const jiraDomain = config.jiraUrl.match(/https?:\/\/([^/]+)/)[0];
+  const jiraDomainMatch = config.jiraUrl.match(/https?:\/\/([^/]+)/);
+  if (!jiraDomainMatch) {
+    console.error(`[Agent] ❌ Invalid JIRA_URL format: ${config.jiraUrl}`);
+    return;
+  }
+  const jiraDomain = jiraDomainMatch[0];
   const targetUrl = `${jiraDomain}/browse/${jiraKey}`;
+  console.log(`[Agent] 🎯 Target JIRA URL: ${targetUrl}`);
 
   const header = action === 'closed' ? 'Post-Merge Analysis' : 'Impact Analysis';
   const commentBody = `
@@ -154,6 +174,56 @@ ${(testCases.testCases || []).slice(0, 5).map(tc => {
     console.log(`[Agent] 🚀 Posted to JIRA ${jiraKey}`);
   } catch (err) {
     console.error(`[Agent] ❌ JIRA Post Failed for ${jiraKey}:`, err.message);
+    console.error(`[Agent] Full error:`, err);
+  }
+}
+
+async function handleAioTestCaseCreation(config, pr, diff, tree, repoOwner, repoName, action) {
+  console.log(`[Agent] 🔍 Checking AIO TCMS configuration...`);
+  console.log(`[Agent] AIO_BASE_URL: ${config.aioBaseUrl ? 'Set' : 'MISSING'}`);
+  console.log(`[Agent] AIO_API_KEY: ${config.aioApiKey ? 'Set (***' + config.aioApiKey.slice(-4) + ')' : 'MISSING'}`);
+  console.log(`[Agent] AIO_PROJECT_ID: ${config.aioProjectId || 'MISSING'}`);
+
+  if (!config.aioBaseUrl || !config.aioApiKey || !config.aioProjectId) {
+    console.log(`[Agent] ⚠️  AIO TCMS not configured. Skipping test case creation.`);
+    return;
+  }
+
+  if (!config.groqKey) {
+    console.log(`[Agent] ⚠️  GROQ_API_KEY missing. Cannot generate test cases for AIO.`);
+    return;
+  }
+
+  // Detect JIRA key if available (for linking test cases)
+  const jiraRegex = /([A-Z]+-[0-9]+)/i;
+  const searchString = `${pr.title} ${pr.head.ref} ${pr.body || ''}`;
+  const match = searchString.match(jiraRegex);
+  const jiraKey = match ? match[1].toUpperCase() : null;
+
+  if (jiraKey) {
+    console.log(`[Agent] 🎫 Found JIRA Key: ${jiraKey} - will link test cases if supported`);
+  }
+
+  try {
+    console.log(`[Agent] 🧪 Generating and creating test cases directly in AIO TCMS...`);
+    const created = await impactLogic.generateAndCreateAioTestCases(
+      config.groqKey,
+      diff,
+      tree,
+      repoOwner,
+      repoName,
+      config.aioBaseUrl,
+      config.aioApiKey,
+      config.aioProjectId,
+      jiraKey
+    );
+    
+    console.log(`[Agent] ✅ Successfully created ${created.length} test cases in AIO TCMS`);
+    if (created.length === 0) {
+      console.log(`[Agent] ⚠️  No test cases were created. Check logs above for details.`);
+    }
+  } catch (err) {
+    console.error(`[Agent] ❌ AIO Test Case Generation/Creation Failed:`, err.message);
     console.error(`[Agent] Full error:`, err);
   }
 }
