@@ -67,3 +67,4 @@ jobs:
 1. **JIRA Tokens**: Always use API Tokens, never your actual password.
 2. **Email**: Use "App Passwords" for SMTP (especially for Gmail).
 3. **Webhook Secret**: If deploying as a public URL, implement X-Hub-Signature verification to ensure requests only come from GitHub.
+4. 
