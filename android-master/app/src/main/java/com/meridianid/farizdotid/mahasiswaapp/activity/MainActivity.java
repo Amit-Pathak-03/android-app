@@ -53,11 +53,11 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        btnLihatMatkul.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(MainActivity.this, MatkulActivity.class));
-            }
-        });
+        // btnLihatMatkul.setOnClickListener(new View.OnClickListener() {
+        //     @Override
+        //     public void onClick(View v) {
+        //         startActivity(new Intent(MainActivity.this, MatkulActivity.class));
+        //     }
+        // });
     }
 }
