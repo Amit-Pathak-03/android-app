@@ -77,21 +77,21 @@ public class MatkulAdapter extends RecyclerView.Adapter<MatkulAdapter.MatkulHold
         return semuamatkulItemList.size();
     }
 
-    // public class MatkulHolder extends RecyclerView.ViewHolder{
+    public class MatkulHolder extends RecyclerView.ViewHolder{
 
-    //     @BindView(R.id.ivTextDrawable)
-    //     ImageView ivTextDrawable;
-    //     @BindView(R.id.tvNamaDosen)
-    //     TextView tvNamaDosen;
-    //     @BindView(R.id.tvNamaMatkul)
-    //     TextView tvNamaMatkul;
+        @BindView(R.id.ivTextDrawable)
+        ImageView ivTextDrawable;
+        @BindView(R.id.tvNamaDosen)
+        TextView tvNamaDosen;
+        @BindView(R.id.tvNamaMatkul)
+        TextView tvNamaMatkul;
 
-    //     public MatkulHolder(View itemView) {
-    //         super(itemView);
+        public MatkulHolder(View itemView) {
+            super(itemView);
 
-    //         ButterKnife.bind(this, itemView);
-    //     }
-    // }
+            ButterKnife.bind(this, itemView);
+        }
+    }
 
     public int getColor() {
         String color;
